@@ -56,6 +56,8 @@ export default function Page() {
   const [xMood, setXMood] = useState(MOODS[0]);
   const [xNotes, setXNotes] = useState('');
 
+  // url: currently attached image (existing hosted URL, or a fresh preview data URL)
+  // blob: only set when a NEW image was just pasted/uploaded and needs uploading on submit
   const [imageState, setImageState] = useState({ url: null, blob: null });
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -335,7 +337,7 @@ export default function Page() {
                 ) : (
                   <p className="entry-text">
                     <span className="asset-inline">{e.asset}</span>
-                    {e.notes ? e.notes : ''}
+                    {e.notes ? `— ${e.notes}` : ''}
                   </p>
                 )}
                 {e.image_url && <img className="card-image" src={e.image_url} alt="Attached screenshot" />}
