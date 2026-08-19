@@ -38,3 +38,27 @@ export async function POST(request) {
   try {
     const sql = getSql();
     await ensureTable(sql);
+    const body = await request.json();
+    const { type, mood, text, asset, category, notes, image_url } = body;
+
+    if (type !== 'thought' && type !== 'trade') {
+      return NextResponse.json({ error: 'Invalid entry type' }, { status: 400 });
+    }
+    if (type === 'thought' && !text) {
+      return NextResponse.json({ error: 'Thought text is required' }, { status: 400 });
+    }
+    if (type === 'trade' && !asset) {
+      return NextResponse.json({ error: 'Asset is required' }, { status: 400 });
+    }
+
+    const id = randomUUID();
+    await sql`
+      INSERT INTO entries (id, type, mood, text, asset, category, notes, image_url)
+      VALUES (${id}, ${type}, ${mood || null}, ${text || null}, ${asset || null}, ${category || null}, ${notes || null}, ${image_url || null});
+    `;
+    return NextResponse.json({ id });
+  } catch (err) {
+    console.error(err);
+    return NextResponse.json({ error: 'Failed to save entry' }, { status: 500 });
+  }
+}
