@@ -46,6 +46,7 @@ export default function Page() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
   const [type, setType] = useState('thought');
+  const [editingId, setEditingId] = useState(null);
 
   const [tMood, setTMood] = useState(MOODS[0]);
   const [tText, setTText] = useState('');
@@ -55,10 +56,11 @@ export default function Page() {
   const [xMood, setXMood] = useState(MOODS[0]);
   const [xNotes, setXNotes] = useState('');
 
-  const [pendingImage, setPendingImage] = useState(null); // { blob, previewUrl }
+  const [imageState, setImageState] = useState({ url: null, blob: null });
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const fileInputRef = useRef(null);
+  const composerRef = useRef(null);
 
   useEffect(() => {
     load();
@@ -72,7 +74,9 @@ export default function Page() {
         if (item.type && item.type.indexOf('image') === 0) {
           ev.preventDefault();
           const file = item.getAsFile();
-          compressImage(file).then(setPendingImage).catch(() => {});
+          compressImage(file)
+            .then(({ blob, previewUrl }) => setImageState({ url: previewUrl, blob }))
+            .catch(() => {});
           break;
         }
       }
@@ -97,11 +101,42 @@ export default function Page() {
     const file = ev.target.files[0];
     if (!file) return;
     try {
-      setPendingImage(await compressImage(file));
+      const { blob, previewUrl } = await compressImage(file);
+      setImageState({ url: previewUrl, blob });
     } catch (e) {
       console.error(e);
     }
     ev.target.value = '';
+  }
+
+  function resetForm() {
+    setTText('');
+    setXAsset('');
+    setXNotes('');
+    setImageState({ url: null, blob: null });
+    setError('');
+  }
+
+  function startEdit(entry) {
+    setEditingId(entry.id);
+    setError('');
+    setType(entry.type);
+    if (entry.type === 'thought') {
+      setTMood(entry.mood || MOODS[0]);
+      setTText(entry.text || '');
+    } else {
+      setXAsset(entry.asset || '');
+      setXCategory(entry.category || CATEGORIES[0]);
+      setXMood(entry.mood || MOODS[0]);
+      setXNotes(entry.notes || '');
+    }
+    setImageState({ url: entry.image_url || null, blob: null });
+    composerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    resetForm();
   }
 
   async function handleSubmit() {
@@ -111,10 +146,10 @@ export default function Page() {
 
     setSubmitting(true);
     try {
-      let image_url = null;
-      if (pendingImage) {
+      let image_url = imageState.url && !imageState.blob ? imageState.url : null;
+      if (imageState.blob) {
         const form = new FormData();
-        form.append('file', pendingImage.blob, 'screenshot.jpg');
+        form.append('file', imageState.blob, 'screenshot.jpg');
         const uploadRes = await fetch('/api/upload', { method: 'POST', body: form });
         if (!uploadRes.ok) throw new Error('Image upload failed');
         const uploadData = await uploadRes.json();
@@ -125,15 +160,17 @@ export default function Page() {
         ? { type: 'thought', mood: tMood, text: tText.trim(), image_url }
         : { type: 'trade', asset: xAsset.trim(), category: xCategory, mood: xMood, notes: xNotes.trim(), image_url };
 
-      const res = await fetch('/api/entries', {
-        method: 'POST',
+      const url = editingId ? `/api/entries/${editingId}` : '/api/entries';
+      const method = editingId ? 'PATCH' : 'POST';
+      const res = await fetch(url, {
+        method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       });
       if (!res.ok) throw new Error('Save failed');
 
-      if (type === 'thought') { setTText(''); } else { setXAsset(''); setXNotes(''); }
-      setPendingImage(null);
+      setEditingId(null);
+      resetForm();
       await load();
     } catch (e) {
       console.error(e);
@@ -144,6 +181,7 @@ export default function Page() {
 
   async function handleDelete(id) {
     setEntries((prev) => prev.filter((e) => e.id !== id));
+    if (editingId === id) cancelEdit();
     try {
       await fetch(`/api/entries/${id}`, { method: 'DELETE' });
     } catch (e) {
@@ -171,7 +209,14 @@ export default function Page() {
         ))}
       </nav>
 
-      <section className="composer">
+      <section className="composer" ref={composerRef}>
+        {editingId && (
+          <div className="editing-banner">
+            <span>Editing entry</span>
+            <button onClick={cancelEdit}>Cancel</button>
+          </div>
+        )}
+
         <div className="type-toggle">
           <button className={type === 'thought' ? 'active' : ''} onClick={() => { setType('thought'); setError(''); }}>Thought</button>
           <button className={type === 'trade' ? 'active' : ''} onClick={() => { setType('trade'); setError(''); }}>Trade</button>
@@ -234,17 +279,17 @@ export default function Page() {
         )}
 
         <div
-          className={`paste-zone ${pendingImage ? 'has-image' : ''}`}
-          onClick={() => { if (!pendingImage) fileInputRef.current?.click(); }}
+          className={`paste-zone ${imageState.url ? 'has-image' : ''}`}
+          onClick={() => { if (!imageState.url) fileInputRef.current?.click(); }}
         >
-          {pendingImage ? (
+          {imageState.url ? (
             <>
-              <img src={pendingImage.previewUrl} alt="Pasted screenshot" />
+              <img src={imageState.url} alt="Attached screenshot" />
               <button
                 type="button"
                 className="paste-remove"
                 aria-label="Remove image"
-                onClick={(ev) => { ev.stopPropagation(); setPendingImage(null); }}
+                onClick={(ev) => { ev.stopPropagation(); setImageState({ url: null, blob: null }); }}
               >
                 ×
               </button>
@@ -258,7 +303,7 @@ export default function Page() {
         <div className="composer-actions">
           <span className="error-msg">{error}</span>
           <button className="btn-log" onClick={handleSubmit} disabled={submitting}>
-            {submitting ? 'Pinning…' : 'Pin it'}
+            {submitting ? (editingId ? 'Saving…' : 'Pinning…') : (editingId ? 'Save changes' : 'Pin it')}
           </button>
         </div>
       </section>
@@ -283,7 +328,7 @@ export default function Page() {
                   <span>{fmtDate(e.created_at)}</span>
                   <span className="tag">{e.type === 'thought' ? 'Thought' : 'Trade'}</span>
                   {e.type === 'trade' && <span className="tag">{e.category}</span>}
-                  {e.type === 'thought' && <span className="tag">{mood}</span>}
+                  <span className="tag">{mood}</span>
                 </div>
                 {e.type === 'thought' ? (
                   <p className="thought-text">{e.text}</p>
@@ -295,6 +340,7 @@ export default function Page() {
                 )}
                 {e.image_url && <img className="card-image" src={e.image_url} alt="Attached screenshot" />}
                 <div className="card-actions">
+                  <button onClick={() => startEdit(e)}>Edit</button>
                   <button onClick={() => handleDelete(e.id)}>Unpin</button>
                 </div>
               </article>
