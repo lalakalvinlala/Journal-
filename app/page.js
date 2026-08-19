@@ -330,13 +330,13 @@ export default function Page() {
                   {e.type === 'trade' && <span className="tag">{e.category}</span>}
                   <span className="tag">{mood}</span>
                 </div>
-                {e.type === 'thought' ? (
-                  <p className="thought-text">{e.text}</p>
+                               {e.type === 'thought' ? (
+                  <p className="entry-text">{e.text}</p>
                 ) : (
-                  <>
-                    <p className="trade-line">{e.asset}</p>
-                    {e.notes && <p className="trade-notes">{e.notes}</p>}
-                  </>
+                  <p className="entry-text">
+                    <span className="asset-inline">{e.asset}</span>
+                    {e.notes ? e.notes : ''}
+                  </p>
                 )}
                 {e.image_url && <img className="card-image" src={e.image_url} alt="Attached screenshot" />}
                 <div className="card-actions">
