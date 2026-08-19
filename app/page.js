@@ -330,7 +330,7 @@ export default function Page() {
                   {e.type === 'trade' && <span className="tag">{e.category}</span>}
                   <span className="tag">{mood}</span>
                 </div>
-                               {e.type === 'thought' ? (
+                {e.type === 'thought' ? (
                   <p className="entry-text">{e.text}</p>
                 ) : (
                   <p className="entry-text">
