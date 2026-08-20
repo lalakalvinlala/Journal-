@@ -1,10 +1,11 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 const MOODS = ['Confident', 'FOMO', 'Regretful'];
 const MOOD_COLOR = { Confident: 'forest', FOMO: 'brass', Regretful: 'rust' };
-const CATEGORIES = ['Memecoin', 'Stock', 'Other'];
+const CATEGORIES = ['Memecoin', 'Stock', 'Leverage', 'Other'];
 
 function fmtDate(iso) {
   const d = new Date(iso);
@@ -41,27 +42,55 @@ function compressImage(file) {
   });
 }
 
-function TrendBars({ counts }) {
-  const max = Math.max(1, ...MOODS.map((m) => counts[m] || 0));
-  return (
-    <>
-      {MOODS.map((m) => (
-        <div className="trend-row" key={m}>
-          <span className="trend-mood">{m}</span>
-          <div className="trend-track">
-            <div className={`trend-fill ${MOOD_COLOR[m]}`} style={{ width: `${((counts[m] || 0) / max) * 100}%` }} />
-          </div>
-          <span className="trend-count">{counts[m] || 0}</span>
-        </div>
-      ))}
-    </>
-  );
+function startOfDay(d) { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; }
+function startOfWeek(d) {
+  const x = startOfDay(d);
+  const day = x.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  x.setDate(x.getDate() + diff);
+  return x;
 }
 
-function countMoods(list) {
-  const counts = { Confident: 0, FOMO: 0, Regretful: 0 };
-  list.forEach((e) => { if (counts[e.mood] !== undefined) counts[e.mood]++; });
-  return counts;
+function buildBuckets(granularity) {
+  const today = new Date();
+  const buckets = [];
+  if (granularity === 'daily') {
+    for (let i = 13; i >= 0; i--) {
+      const start = startOfDay(new Date(today.getFullYear(), today.getMonth(), today.getDate() - i));
+      const end = new Date(start); end.setDate(end.getDate() + 1);
+      buckets.push({ start, end, label: start.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) });
+    }
+  } else if (granularity === 'weekly') {
+    const thisWeekStart = startOfWeek(today);
+    for (let i = 11; i >= 0; i--) {
+      const start = new Date(thisWeekStart); start.setDate(start.getDate() - i * 7);
+      const end = new Date(start); end.setDate(end.getDate() + 7);
+      buckets.push({ start, end, label: start.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) });
+    }
+  } else if (granularity === 'monthly') {
+    for (let i = 11; i >= 0; i--) {
+      const start = new Date(today.getFullYear(), today.getMonth() - i, 1);
+      const end = new Date(today.getFullYear(), today.getMonth() - i + 1, 1);
+      buckets.push({ start, end, label: start.toLocaleDateString(undefined, { month: 'short', year: '2-digit' }) });
+    }
+  } else {
+    for (let i = 4; i >= 0; i--) {
+      const y = today.getFullYear() - i;
+      buckets.push({ start: new Date(y, 0, 1), end: new Date(y + 1, 0, 1), label: String(y) });
+    }
+  }
+  return buckets;
+}
+
+function bucketMoodData(entries, granularity) {
+  return buildBuckets(granularity).map((b) => {
+    const counts = { Confident: 0, FOMO: 0, Regretful: 0 };
+    entries.forEach((e) => {
+      const t = new Date(e.created_at);
+      if (t >= b.start && t < b.end && counts[e.mood] !== undefined) counts[e.mood]++;
+    });
+    return { label: b.label, ...counts };
+  });
 }
 
 export default function Page() {
@@ -71,6 +100,8 @@ export default function Page() {
   const [search, setSearch] = useState('');
   const [type, setType] = useState('thought');
   const [editingId, setEditingId] = useState(null);
+  const [granularity, setGranularity] = useState('daily');
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
 
   const [tMood, setTMood] = useState(MOODS[0]);
   const [tText, setTText] = useState('');
@@ -203,8 +234,9 @@ export default function Page() {
     setSubmitting(false);
   }
 
-  async function handleDelete(id) {
-    if (!window.confirm("Delete this entry? This can't be undone.")) return;
+  async function confirmDelete() {
+    const id = confirmDeleteId;
+    setConfirmDeleteId(null);
     setEntries((prev) => prev.filter((e) => e.id !== id));
     if (editingId === id) cancelEdit();
     try {
@@ -228,10 +260,7 @@ export default function Page() {
     })
     .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
-  const now = new Date();
-  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-  const allTimeCounts = countMoods(entries);
-  const thisMonthCounts = countMoods(entries.filter((e) => new Date(e.created_at) >= startOfMonth));
+  const chartData = bucketMoodData(entries, granularity);
 
   return (
     <div className="wrap">
@@ -350,15 +379,41 @@ export default function Page() {
       {entries.length > 0 && (
         <section className="trends">
           <p className="trends-title">Mood trends</p>
-          <div className="trends-columns">
-            <div>
-              <p className="trends-col-label">This month</p>
-              <TrendBars counts={thisMonthCounts} />
-            </div>
-            <div>
-              <p className="trends-col-label">All time</p>
-              <TrendBars counts={allTimeCounts} />
-            </div>
+          <div className="type-toggle" style={{ marginBottom: '14px' }}>
+            {['daily', 'weekly', 'monthly', 'yearly'].map((g) => (
+              <button key={g} className={granularity === g ? 'active' : ''} onClick={() => setGranularity(g)}>
+                {g[0].toUpperCase() + g.slice(1)}
+              </button>
+            ))}
+          </div>
+          <div className="chart-wrap">
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={chartData} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(43,32,19,0.12)" vertical={false} />
+                <XAxis
+                  dataKey="label"
+                  tick={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 10, fill: '#7A6B4C' }}
+                  axisLine={{ stroke: 'rgba(43,32,19,0.2)' }}
+                  tickLine={false}
+                />
+                <YAxis
+                  allowDecimals={false}
+                  tick={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 10, fill: '#7A6B4C' }}
+                  axisLine={false}
+                  tickLine={false}
+                  width={24}
+                />
+                <Tooltip
+                  contentStyle={{ background: '#F2E9D3', border: '1px solid rgba(43,32,19,0.2)', borderRadius: 8, fontFamily: 'Nunito, sans-serif', fontSize: 12 }}
+                  labelStyle={{ color: '#2B2013', fontWeight: 600 }}
+                  cursor={{ fill: 'rgba(43,32,19,0.05)' }}
+                />
+                <Legend wrapperStyle={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 11 }} />
+                <Bar dataKey="Confident" stackId="mood" fill="#3F7A6E" />
+                <Bar dataKey="FOMO" stackId="mood" fill="#B4862B" />
+                <Bar dataKey="Regretful" stackId="mood" fill="#B33A3A" radius={[3, 3, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
           </div>
         </section>
       )}
@@ -405,12 +460,25 @@ export default function Page() {
                 {e.image_url && <img className="card-image" src={e.image_url} alt="Attached screenshot" />}
                 <div className="card-actions">
                   <button onClick={() => startEdit(e)}>Edit</button>
-                  <button onClick={() => handleDelete(e.id)}>Unpin</button>
+                  <button onClick={() => setConfirmDeleteId(e.id)}>Unpin</button>
                 </div>
               </article>
             );
           })}
         </section>
+      )}
+
+      {confirmDeleteId && (
+        <div className="modal-overlay" onClick={() => setConfirmDeleteId(null)}>
+          <div className="modal-box" onClick={(ev) => ev.stopPropagation()}>
+            <p className="modal-title">Delete this entry?</p>
+            <p className="modal-body">This can&apos;t be undone.</p>
+            <div className="modal-actions">
+              <button className="modal-cancel" onClick={() => setConfirmDeleteId(null)}>Cancel</button>
+              <button className="modal-confirm" onClick={confirmDelete}>Delete</button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
