@@ -41,10 +41,34 @@ function compressImage(file) {
   });
 }
 
+function TrendBars({ counts }) {
+  const max = Math.max(1, ...MOODS.map((m) => counts[m] || 0));
+  return (
+    <>
+      {MOODS.map((m) => (
+        <div className="trend-row" key={m}>
+          <span className="trend-mood">{m}</span>
+          <div className="trend-track">
+            <div className={`trend-fill ${MOOD_COLOR[m]}`} style={{ width: `${((counts[m] || 0) / max) * 100}%` }} />
+          </div>
+          <span className="trend-count">{counts[m] || 0}</span>
+        </div>
+      ))}
+    </>
+  );
+}
+
+function countMoods(list) {
+  const counts = { Confident: 0, FOMO: 0, Regretful: 0 };
+  list.forEach((e) => { if (counts[e.mood] !== undefined) counts[e.mood]++; });
+  return counts;
+}
+
 export default function Page() {
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
+  const [search, setSearch] = useState('');
   const [type, setType] = useState('thought');
   const [editingId, setEditingId] = useState(null);
 
@@ -56,8 +80,6 @@ export default function Page() {
   const [xMood, setXMood] = useState(MOODS[0]);
   const [xNotes, setXNotes] = useState('');
 
-  // url: currently attached image (existing hosted URL, or a fresh preview data URL)
-  // blob: only set when a NEW image was just pasted/uploaded and needs uploading on submit
   const [imageState, setImageState] = useState({ url: null, blob: null });
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -182,6 +204,7 @@ export default function Page() {
   }
 
   async function handleDelete(id) {
+    if (!window.confirm("Delete this entry? This can't be undone.")) return;
     setEntries((prev) => prev.filter((e) => e.id !== id));
     if (editingId === id) cancelEdit();
     try {
@@ -194,7 +217,21 @@ export default function Page() {
 
   const filtered = entries
     .filter((e) => filter === 'all' || e.type === filter)
+    .filter((e) => {
+      if (!search.trim()) return true;
+      const q = search.trim().toLowerCase();
+      return (
+        (e.text && e.text.toLowerCase().includes(q)) ||
+        (e.notes && e.notes.toLowerCase().includes(q)) ||
+        (e.asset && e.asset.toLowerCase().includes(q))
+      );
+    })
     .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+  const now = new Date();
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const allTimeCounts = countMoods(entries);
+  const thisMonthCounts = countMoods(entries.filter((e) => new Date(e.created_at) >= startOfMonth));
 
   return (
     <div className="wrap">
@@ -310,14 +347,39 @@ export default function Page() {
         </div>
       </section>
 
+      {entries.length > 0 && (
+        <section className="trends">
+          <p className="trends-title">Mood trends</p>
+          <div className="trends-columns">
+            <div>
+              <p className="trends-col-label">This month</p>
+              <TrendBars counts={thisMonthCounts} />
+            </div>
+            <div>
+              <p className="trends-col-label">All time</p>
+              <TrendBars counts={allTimeCounts} />
+            </div>
+          </div>
+        </section>
+      )}
+
+      <div className="search-bar">
+        <input
+          type="text"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search your entries…"
+        />
+      </div>
+
       {loading ? (
         <div className="empty-state">
           <p className="h">Loading…</p>
         </div>
       ) : filtered.length === 0 ? (
         <div className="empty-state">
-          <p className="h">Nothing pinned up yet.</p>
-          <p className="b">Add a thought, or log a trade, above.</p>
+          <p className="h">{entries.length === 0 ? 'Nothing pinned up yet.' : 'No entries match.'}</p>
+          <p className="b">{entries.length === 0 ? 'Add a thought, or log a trade, above.' : 'Try a different search or filter.'}</p>
         </div>
       ) : (
         <section className="feed">
