@@ -209,7 +209,7 @@ header h1{
   border-radius:2px;
   background:rgba(43,32,19,0.08);
 }
-.entry-text{font-family:'Nunito', sans-serif;font-size:17px;font-weight:400;line-height:1.65;margin:0 0 8px;color:var(--ink);}
+.entry-text{font-family:'Nunito', sans-serif;font-size:17px;font-weight:400;line-height:1.65;margin:0 0 8px;color:var(--ink);white-space:pre-line;}
 .asset-inline{
   display:inline-block;
   font-family:'IBM Plex Mono', monospace;
@@ -267,4 +267,5 @@ header h1{
 @media (max-width:600px){
   header h1{font-size:38px;}
   .field-row{grid-template-columns:1fr;}
+  .feed{grid-template-columns:1fr;}
 }
