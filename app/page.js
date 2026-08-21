@@ -393,6 +393,19 @@ export default function Page() {
         ))}
       </nav>
 
+      {filter !== 'thought' && (
+        <div className="status-filter">
+          <span className="status-filter-label">Status</span>
+          <div className="type-toggle" style={{ margin: 0 }}>
+            {[['all', 'All'], ['open', 'Open'], ['closed', 'Closed']].map(([key, label]) => (
+              <button key={key} className={statusFilter === key ? 'active' : ''} onClick={() => setStatusFilter(key)}>
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       <section className="composer" ref={composerRef}>
         {editingId && (
           <div className="editing-banner">
@@ -532,16 +545,6 @@ export default function Page() {
             </ResponsiveContainer>
           </div>
         </section>
-      )}
-
-      {filter !== 'thought' && (
-        <div className="type-toggle" style={{ maxWidth: '640px', margin: '0 auto 16px' }}>
-          {[['all', 'All'], ['open', 'Open'], ['closed', 'Closed']].map(([key, label]) => (
-            <button key={key} className={statusFilter === key ? 'active' : ''} onClick={() => setStatusFilter(key)}>
-              {label}
-            </button>
-          ))}
-        </div>
       )}
 
       <div className="search-bar">
