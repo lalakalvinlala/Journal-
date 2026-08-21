@@ -117,6 +117,11 @@ export default function Page() {
   const fileInputRef = useRef(null);
   const composerRef = useRef(null);
 
+  const [updateDraft, setUpdateDraft] = useState(null);
+  const [updateSubmitting, setUpdateSubmitting] = useState(false);
+  const [updateError, setUpdateError] = useState('');
+  const updateFileInputRef = useRef(null);
+
   useEffect(() => {
     load();
   }, []);
@@ -130,7 +135,13 @@ export default function Page() {
           ev.preventDefault();
           const file = item.getAsFile();
           compressImage(file)
-            .then(({ blob, previewUrl }) => setImageState({ url: previewUrl, blob }))
+            .then(({ blob, previewUrl }) => {
+              if (updateDraft) {
+                setUpdateDraft((prev) => (prev ? { ...prev, imageState: { url: previewUrl, blob } } : prev));
+              } else {
+                setImageState({ url: previewUrl, blob });
+              }
+            })
             .catch(() => {});
           break;
         }
@@ -138,7 +149,7 @@ export default function Page() {
     }
     document.addEventListener('paste', onPaste);
     return () => document.removeEventListener('paste', onPaste);
-  }, []);
+  }, [updateDraft]);
 
   async function load() {
     setLoading(true);
@@ -244,6 +255,70 @@ export default function Page() {
     } catch (e) {
       console.error(e);
       load();
+    }
+  }
+
+  function openUpdateForm(entryId) {
+    if (updateDraft && updateDraft.entryId === entryId) {
+      setUpdateDraft(null);
+      return;
+    }
+    setUpdateDraft({ entryId, mood: MOODS[0], notes: '', imageState: { url: null, blob: null }, markClosed: false });
+    setUpdateError('');
+  }
+
+  async function handleUpdateFileChange(ev) {
+    const file = ev.target.files[0];
+    if (!file || !updateDraft) return;
+    try {
+      const { blob, previewUrl } = await compressImage(file);
+      setUpdateDraft((prev) => (prev ? { ...prev, imageState: { url: previewUrl, blob } } : prev));
+    } catch (e) {
+      console.error(e);
+    }
+    ev.target.value = '';
+  }
+
+  async function submitUpdate() {
+    if (!updateDraft) return;
+    if (!updateDraft.notes.trim()) { setUpdateError('Add a quick note first.'); return; }
+    setUpdateSubmitting(true);
+    setUpdateError('');
+    try {
+      let image_url = updateDraft.imageState.url && !updateDraft.imageState.blob ? updateDraft.imageState.url : null;
+      if (updateDraft.imageState.blob) {
+        const form = new FormData();
+        form.append('file', updateDraft.imageState.blob, 'screenshot.jpg');
+        const uploadRes = await fetch('/api/upload', { method: 'POST', body: form });
+        if (!uploadRes.ok) throw new Error('Image upload failed');
+        const uploadData = await uploadRes.json();
+        image_url = uploadData.url;
+      }
+      const res = await fetch(`/api/entries/${updateDraft.entryId}/updates`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mood: updateDraft.mood, notes: updateDraft.notes.trim(), image_url, markClosed: updateDraft.markClosed }),
+      });
+      if (!res.ok) throw new Error('Save failed');
+      setUpdateDraft(null);
+      await load();
+    } catch (e) {
+      console.error(e);
+      setUpdateError('Something went wrong saving that update.');
+    }
+    setUpdateSubmitting(false);
+  }
+
+  async function reopenTrade(id) {
+    try {
+      await fetch(`/api/entries/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ statusOnly: true, status: 'open' }),
+      });
+      await load();
+    } catch (e) {
+      console.error(e);
     }
   }
 
@@ -447,6 +522,9 @@ export default function Page() {
                   <span>{fmtDate(e.created_at)}</span>
                   <span className="tag">{e.type === 'thought' ? 'Thought' : 'Trade'}</span>
                   {e.type === 'trade' && <span className="tag">{e.category}</span>}
+                  {e.type === 'trade' && (
+                    <span className={`tag status-${e.status || 'open'}`}>{e.status === 'closed' ? 'Closed' : 'Open'}</span>
+                  )}
                   <span className="tag">{mood}</span>
                 </div>
                 {e.type === 'thought' ? (
@@ -458,10 +536,95 @@ export default function Page() {
                   </p>
                 )}
                 {e.image_url && <img className="card-image" src={e.image_url} alt="Attached screenshot" />}
+
+                {e.type === 'trade' && Array.isArray(e.updates) && e.updates.length > 0 && (
+                  <div className="updates-thread">
+                    {e.updates.map((u) => (
+                      <div className="update-item" key={u.id}>
+                        <span className={`update-dot ${MOOD_COLOR[u.mood] || 'brass'}`} />
+                        <div className="update-body">
+                          <div className="update-meta">{fmtDate(u.created_at)} · {u.mood}</div>
+                          <p className="update-text">{u.notes}</p>
+                          {u.image_url && <img className="update-image" src={u.image_url} alt="Update screenshot" />}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
                 <div className="card-actions">
                   <button onClick={() => startEdit(e)}>Edit</button>
+                  {e.type === 'trade' && (
+                    <button onClick={() => openUpdateForm(e.id)}>
+                      {updateDraft?.entryId === e.id ? 'Cancel update' : '+ Add update'}
+                    </button>
+                  )}
+                  {e.type === 'trade' && e.status === 'closed' && (
+                    <button onClick={() => reopenTrade(e.id)}>Reopen</button>
+                  )}
                   <button onClick={() => setConfirmDeleteId(e.id)}>Unpin</button>
                 </div>
+
+                {updateDraft?.entryId === e.id && (
+                  <div className="update-form">
+                    <div className="field-row">
+                      <div className="field">
+                        <label>Mood</label>
+                        <select
+                          value={updateDraft.mood}
+                          onChange={(ev) => setUpdateDraft((prev) => ({ ...prev, mood: ev.target.value }))}
+                        >
+                          {MOODS.map((m) => <option key={m}>{m}</option>)}
+                        </select>
+                      </div>
+                    </div>
+                    <div className="field-row">
+                      <div className="field full">
+                        <label>What&apos;s new</label>
+                        <textarea
+                          value={updateDraft.notes}
+                          onChange={(ev) => setUpdateDraft((prev) => ({ ...prev, notes: ev.target.value }))}
+                          placeholder="Price check, a thought, whatever's changed."
+                        />
+                      </div>
+                    </div>
+                    <div
+                      className={`paste-zone ${updateDraft.imageState.url ? 'has-image' : ''}`}
+                      onClick={() => { if (!updateDraft.imageState.url) updateFileInputRef.current?.click(); }}
+                    >
+                      {updateDraft.imageState.url ? (
+                        <>
+                          <img src={updateDraft.imageState.url} alt="Attached screenshot" />
+                          <button
+                            type="button"
+                            className="paste-remove"
+                            aria-label="Remove image"
+                            onClick={(ev) => { ev.stopPropagation(); setUpdateDraft((prev) => ({ ...prev, imageState: { url: null, blob: null } })); }}
+                          >
+                            ×
+                          </button>
+                        </>
+                      ) : (
+                        <span>Paste a screenshot (Ctrl+V) or click to upload</span>
+                      )}
+                    </div>
+                    <input ref={updateFileInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleUpdateFileChange} />
+                    <label className="close-checkbox">
+                      <input
+                        type="checkbox"
+                        checked={updateDraft.markClosed}
+                        onChange={(ev) => setUpdateDraft((prev) => ({ ...prev, markClosed: ev.target.checked }))}
+                      />
+                      Mark this trade as closed
+                    </label>
+                    <div className="composer-actions">
+                      <span className="error-msg">{updateError}</span>
+                      <button className="btn-log" onClick={submitUpdate} disabled={updateSubmitting}>
+                        {updateSubmitting ? 'Saving…' : 'Add update'}
+                      </button>
+                    </div>
+                  </div>
+                )}
               </article>
             );
           })}
