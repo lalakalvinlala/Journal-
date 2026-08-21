@@ -97,7 +97,6 @@ export default function Page() {
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
-  const [statusFilter, setStatusFilter] = useState('all');
   const [search, setSearch] = useState('');
   const [type, setType] = useState('thought');
   const [editingId, setEditingId] = useState(null);
@@ -363,8 +362,14 @@ export default function Page() {
   }
 
   const filtered = entries
-    .filter((e) => filter === 'all' || e.type === filter)
-    .filter((e) => filter === 'thought' || statusFilter === 'all' || (e.type === 'trade' && (e.status || 'open') === statusFilter))
+    .filter((e) => {
+      if (filter === 'all') return true;
+      if (filter === 'thought') return e.type === 'thought';
+      if (filter === 'trade') return e.type === 'trade';
+      if (filter === 'trade-open') return e.type === 'trade' && (e.status || 'open') === 'open';
+      if (filter === 'trade-closed') return e.type === 'trade' && e.status === 'closed';
+      return true;
+    })
     .filter((e) => {
       if (!search.trim()) return true;
       const q = search.trim().toLowerCase();
@@ -386,25 +391,18 @@ export default function Page() {
       </header>
 
       <nav className="tabs">
-        {[['all', 'Everything'], ['thought', 'Thoughts'], ['trade', 'Trades']].map(([key, label]) => (
+        {[
+          ['all', 'Everything'],
+          ['thought', 'Thoughts'],
+          ['trade', 'Trades'],
+          ['trade-open', 'Open Trades'],
+          ['trade-closed', 'Closed Trades'],
+        ].map(([key, label]) => (
           <button key={key} className={filter === key ? 'active' : ''} onClick={() => setFilter(key)}>
             {label}
           </button>
         ))}
       </nav>
-
-      {filter !== 'thought' && (
-        <div className="status-filter">
-          <span className="status-filter-label">Status</span>
-          <div className="type-toggle" style={{ margin: 0 }}>
-            {[['all', 'All'], ['open', 'Open'], ['closed', 'Closed']].map(([key, label]) => (
-              <button key={key} className={statusFilter === key ? 'active' : ''} onClick={() => setStatusFilter(key)}>
-                {label}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
 
       <section className="composer" ref={composerRef}>
         {editingId && (
