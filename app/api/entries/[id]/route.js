@@ -6,6 +6,12 @@ export async function PATCH(request, context) {
     const { id } = await context.params;
     const sql = neon(process.env.DATABASE_URL);
     const body = await request.json();
+
+    if (body.statusOnly) {
+      await sql`UPDATE entries SET status = ${body.status} WHERE id = ${id};`;
+      return NextResponse.json({ ok: true });
+    }
+
     const { mood, text, asset, category, notes, image_url } = body;
     await sql`
       UPDATE entries
