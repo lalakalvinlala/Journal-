@@ -67,23 +67,6 @@ header h1{
 }
 .tabs button:focus-visible{outline:2px solid var(--pin-mustard);outline-offset:2px;}
 
-.status-filter{
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  gap:10px;
-  max-width:640px;
-  margin:-10px auto 22px;
-  flex-wrap:wrap;
-}
-.status-filter-label{
-  font-family:'IBM Plex Mono', monospace;
-  font-size:10px;
-  letter-spacing:.08em;
-  text-transform:uppercase;
-  color:var(--ink-soft);
-}
-
 .composer{
   background:var(--kraft);
   border:1px solid rgba(43,32,19,0.2);
