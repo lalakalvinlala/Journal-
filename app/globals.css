@@ -227,6 +227,45 @@ header h1{
 }
 .card-image{display:block;max-width:100%;border-radius:6px;margin-top:8px;margin-bottom:6px;}
 
+.tag.status-open{color:var(--pin-teal);border-color:var(--pin-teal);}
+.tag.status-closed{color:var(--ink-soft);}
+
+.updates-thread{
+  margin:10px 0 4px;
+  padding-left:14px;
+  border-left:2px solid rgba(43,32,19,0.15);
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+.update-item{display:flex;gap:8px;align-items:flex-start;}
+.update-dot{width:8px;height:8px;border-radius:50%;margin-top:6px;flex:none;}
+.update-dot.forest{background:var(--pin-teal);}
+.update-dot.brass{background:var(--pin-mustard);}
+.update-dot.rust{background:var(--pin-red);}
+.update-meta{font-family:'IBM Plex Mono', monospace;font-size:10px;color:var(--ink-soft);margin-bottom:2px;}
+.update-text{font-family:'Nunito', sans-serif;font-size:14px;line-height:1.5;margin:0;color:var(--ink);white-space:pre-line;}
+.update-image{display:block;max-width:100%;border-radius:6px;margin-top:6px;}
+
+.update-form{
+  margin-top:12px;
+  padding:14px;
+  background:rgba(255,255,255,0.5);
+  border:1px dashed rgba(43,32,19,0.25);
+  border-radius:8px;
+}
+.close-checkbox{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  font-family:'IBM Plex Mono', monospace;
+  font-size:11px;
+  color:var(--ink-soft);
+  margin:8px 0 4px;
+  cursor:pointer;
+}
+.close-checkbox input{cursor:pointer;}
+
 .card-actions{display:flex;gap:8px;margin-top:10px;}
 .card-actions button{
   font-family:'IBM Plex Mono', monospace;
