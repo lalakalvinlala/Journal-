@@ -97,6 +97,7 @@ export default function Page() {
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
   const [search, setSearch] = useState('');
   const [type, setType] = useState('thought');
   const [editingId, setEditingId] = useState(null);
@@ -363,6 +364,7 @@ export default function Page() {
 
   const filtered = entries
     .filter((e) => filter === 'all' || e.type === filter)
+    .filter((e) => filter === 'thought' || statusFilter === 'all' || (e.type === 'trade' && (e.status || 'open') === statusFilter))
     .filter((e) => {
       if (!search.trim()) return true;
       const q = search.trim().toLowerCase();
@@ -530,6 +532,16 @@ export default function Page() {
             </ResponsiveContainer>
           </div>
         </section>
+      )}
+
+      {filter !== 'thought' && (
+        <div className="type-toggle" style={{ maxWidth: '640px', margin: '0 auto 16px' }}>
+          {[['all', 'All'], ['open', 'Open'], ['closed', 'Closed']].map(([key, label]) => (
+            <button key={key} className={statusFilter === key ? 'active' : ''} onClick={() => setStatusFilter(key)}>
+              {label}
+            </button>
+          ))}
+        </div>
       )}
 
       <div className="search-bar">
