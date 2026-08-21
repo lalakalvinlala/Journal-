@@ -102,6 +102,7 @@ export default function Page() {
   const [editingId, setEditingId] = useState(null);
   const [granularity, setGranularity] = useState('daily');
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+  const [confirmDeleteUpdateId, setConfirmDeleteUpdateId] = useState(null);
 
   const [tMood, setTMood] = useState(MOODS[0]);
   const [tText, setTText] = useState('');
@@ -259,11 +260,28 @@ export default function Page() {
   }
 
   function openUpdateForm(entryId) {
-    if (updateDraft && updateDraft.entryId === entryId) {
+    if (updateDraft && updateDraft.entryId === entryId && !updateDraft.updateId) {
       setUpdateDraft(null);
       return;
     }
-    setUpdateDraft({ entryId, mood: MOODS[0], notes: '', imageState: { url: null, blob: null }, markClosed: false });
+    setUpdateDraft({ entryId, updateId: null, mood: MOODS[0], notes: '', imageState: { url: null, blob: null }, markClosed: false });
+    setUpdateError('');
+  }
+
+  function startEditUpdate(entryId, update) {
+    setUpdateDraft({
+      entryId,
+      updateId: update.id,
+      mood: update.mood || MOODS[0],
+      notes: update.notes || '',
+      imageState: { url: update.image_url || null, blob: null },
+      markClosed: false,
+    });
+    setUpdateError('');
+  }
+
+  function cancelUpdateForm() {
+    setUpdateDraft(null);
     setUpdateError('');
   }
 
@@ -294,12 +312,21 @@ export default function Page() {
         const uploadData = await uploadRes.json();
         image_url = uploadData.url;
       }
-      const res = await fetch(`/api/entries/${updateDraft.entryId}/updates`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mood: updateDraft.mood, notes: updateDraft.notes.trim(), image_url, markClosed: updateDraft.markClosed }),
-      });
-      if (!res.ok) throw new Error('Save failed');
+      if (updateDraft.updateId) {
+        const res = await fetch(`/api/updates/${updateDraft.updateId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mood: updateDraft.mood, notes: updateDraft.notes.trim(), image_url }),
+        });
+        if (!res.ok) throw new Error('Save failed');
+      } else {
+        const res = await fetch(`/api/entries/${updateDraft.entryId}/updates`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mood: updateDraft.mood, notes: updateDraft.notes.trim(), image_url, markClosed: updateDraft.markClosed }),
+        });
+        if (!res.ok) throw new Error('Save failed');
+      }
       setUpdateDraft(null);
       await load();
     } catch (e) {
@@ -316,6 +343,18 @@ export default function Page() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ statusOnly: true, status: 'open' }),
       });
+      await load();
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  async function confirmDeleteUpdate() {
+    const id = confirmDeleteUpdateId;
+    setConfirmDeleteUpdateId(null);
+    if (updateDraft && updateDraft.updateId === id) setUpdateDraft(null);
+    try {
+      await fetch(`/api/updates/${id}`, { method: 'DELETE' });
       await load();
     } catch (e) {
       console.error(e);
@@ -546,6 +585,10 @@ export default function Page() {
                           <div className="update-meta">{fmtDate(u.created_at)} · {u.mood}</div>
                           <p className="update-text">{u.notes}</p>
                           {u.image_url && <img className="update-image" src={u.image_url} alt="Update screenshot" />}
+                          <div className="card-actions update-item-actions">
+                            <button onClick={() => startEditUpdate(e.id, u)}>Edit</button>
+                            <button onClick={() => setConfirmDeleteUpdateId(u.id)}>Delete</button>
+                          </div>
                         </div>
                       </div>
                     ))}
@@ -567,6 +610,10 @@ export default function Page() {
 
                 {updateDraft?.entryId === e.id && (
                   <div className="update-form">
+                    <div className="editing-banner">
+                      <span>{updateDraft.updateId ? 'Editing update' : 'New update'}</span>
+                      <button onClick={cancelUpdateForm}>Cancel</button>
+                    </div>
                     <div className="field-row">
                       <div className="field">
                         <label>Mood</label>
@@ -609,18 +656,20 @@ export default function Page() {
                       )}
                     </div>
                     <input ref={updateFileInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleUpdateFileChange} />
-                    <label className="close-checkbox">
-                      <input
-                        type="checkbox"
-                        checked={updateDraft.markClosed}
-                        onChange={(ev) => setUpdateDraft((prev) => ({ ...prev, markClosed: ev.target.checked }))}
-                      />
-                      Mark this trade as closed
-                    </label>
+                    {!updateDraft.updateId && (
+                      <label className="close-checkbox">
+                        <input
+                          type="checkbox"
+                          checked={updateDraft.markClosed}
+                          onChange={(ev) => setUpdateDraft((prev) => ({ ...prev, markClosed: ev.target.checked }))}
+                        />
+                        Mark this trade as closed
+                      </label>
+                    )}
                     <div className="composer-actions">
                       <span className="error-msg">{updateError}</span>
                       <button className="btn-log" onClick={submitUpdate} disabled={updateSubmitting}>
-                        {updateSubmitting ? 'Saving…' : 'Add update'}
+                        {updateSubmitting ? 'Saving…' : (updateDraft.updateId ? 'Save changes' : 'Add update')}
                       </button>
                     </div>
                   </div>
@@ -639,6 +688,18 @@ export default function Page() {
             <div className="modal-actions">
               <button className="modal-cancel" onClick={() => setConfirmDeleteId(null)}>Cancel</button>
               <button className="modal-confirm" onClick={confirmDelete}>Delete</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {confirmDeleteUpdateId && (
+        <div className="modal-overlay" onClick={() => setConfirmDeleteUpdateId(null)}>
+          <div className="modal-box" onClick={(ev) => ev.stopPropagation()}>
+            <p className="modal-title">Delete this update?</p>
+            <p className="modal-body">This can&apos;t be undone.</p>
+            <div className="modal-actions">
+              <button className="modal-cancel" onClick={() => setConfirmDeleteUpdateId(null)}>Cancel</button>
+              <button className="modal-confirm" onClick={confirmDeleteUpdate}>Delete</button>
             </div>
           </div>
         </div>
