@@ -103,6 +103,7 @@ export default function Page() {
   const [granularity, setGranularity] = useState('daily');
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
   const [confirmDeleteUpdateId, setConfirmDeleteUpdateId] = useState(null);
+  const [lightboxImage, setLightboxImage] = useState(null);
 
   const [tMood, setTMood] = useState(MOODS[0]);
   const [tText, setTText] = useState('');
@@ -151,6 +152,15 @@ export default function Page() {
     document.addEventListener('paste', onPaste);
     return () => document.removeEventListener('paste', onPaste);
   }, [updateDraft]);
+
+  useEffect(() => {
+    if (!lightboxImage) return;
+    function onKey(ev) {
+      if (ev.key === 'Escape') setLightboxImage(null);
+    }
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [lightboxImage]);
 
   async function load() {
     setLoading(true);
@@ -586,7 +596,14 @@ export default function Page() {
                     {e.notes ? `— ${e.notes}` : ''}
                   </p>
                 )}
-                {e.image_url && <img className="card-image" src={e.image_url} alt="Attached screenshot" />}
+                {e.image_url && (
+                  <img
+                    className="card-image"
+                    src={e.image_url}
+                    alt="Attached screenshot"
+                    onClick={() => setLightboxImage(e.image_url)}
+                  />
+                )}
 
                 {e.type === 'trade' && Array.isArray(e.updates) && e.updates.length > 0 && (
                   <div className="updates-thread">
@@ -596,7 +613,14 @@ export default function Page() {
                         <div className="update-body">
                           <div className="update-meta">{fmtDate(u.created_at)} · {u.mood}</div>
                           <p className="update-text">{u.notes}</p>
-                          {u.image_url && <img className="update-image" src={u.image_url} alt="Update screenshot" />}
+                          {u.image_url && (
+                            <img
+                              className="update-image"
+                              src={u.image_url}
+                              alt="Update screenshot"
+                              onClick={() => setLightboxImage(u.image_url)}
+                            />
+                          )}
                           <div className="card-actions update-item-actions">
                             <button onClick={() => startEditUpdate(e.id, u)}>Edit</button>
                             <button onClick={() => setConfirmDeleteUpdateId(u.id)}>Delete</button>
@@ -714,6 +738,12 @@ export default function Page() {
               <button className="modal-confirm" onClick={confirmDeleteUpdate}>Delete</button>
             </div>
           </div>
+        </div>
+      )}
+      {lightboxImage && (
+        <div className="lightbox-overlay" onClick={() => setLightboxImage(null)}>
+          <button className="lightbox-close" onClick={() => setLightboxImage(null)} aria-label="Close">×</button>
+          <img src={lightboxImage} alt="Enlarged screenshot" />
         </div>
       )}
     </div>
