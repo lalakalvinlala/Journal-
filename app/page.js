@@ -22,19 +22,21 @@ function compressImage(file) {
     const img = new Image();
     img.onload = () => {
       let w = img.width, h = img.height;
-      const maxW = 1600;
+      const maxW = 1800;
       if (w > maxW) { h = Math.round((h * maxW) / w); w = maxW; }
       const canvas = document.createElement('canvas');
       canvas.width = w; canvas.height = h;
-      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      const ctx = canvas.getContext('2d');
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(img, 0, 0, w, h);
       URL.revokeObjectURL(url);
       canvas.toBlob(
         (blob) => {
           if (!blob) { reject(new Error('Could not process image')); return; }
-          resolve({ blob, previewUrl: canvas.toDataURL('image/jpeg', 0.9) });
+          resolve({ blob, previewUrl: canvas.toDataURL('image/png') });
         },
-        'image/jpeg',
-        0.9
+        'image/png'
       );
     };
     img.onerror = reject;
@@ -231,7 +233,7 @@ export default function Page() {
       let image_url = imageState.url && !imageState.blob ? imageState.url : null;
       if (imageState.blob) {
         const form = new FormData();
-        form.append('file', imageState.blob, 'screenshot.jpg');
+        form.append('file', imageState.blob, 'screenshot.png');
         const uploadRes = await fetch('/api/upload', { method: 'POST', body: form });
         if (!uploadRes.ok) throw new Error('Image upload failed');
         const uploadData = await uploadRes.json();
@@ -321,7 +323,7 @@ export default function Page() {
       let image_url = updateDraft.imageState.url && !updateDraft.imageState.blob ? updateDraft.imageState.url : null;
       if (updateDraft.imageState.blob) {
         const form = new FormData();
-        form.append('file', updateDraft.imageState.blob, 'screenshot.jpg');
+        form.append('file', updateDraft.imageState.blob, 'screenshot.png');
         const uploadRes = await fetch('/api/upload', { method: 'POST', body: form });
         if (!uploadRes.ok) throw new Error('Image upload failed');
         const uploadData = await uploadRes.json();
