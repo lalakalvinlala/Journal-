@@ -8,7 +8,7 @@ export async function POST(request) {
     if (!file) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 });
     }
-    const filename = `journal/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
+    const filename = `journal/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.png`;
     const blob = await put(filename, file, { access: 'public' });
     return NextResponse.json({ url: blob.url });
   } catch (err) {
