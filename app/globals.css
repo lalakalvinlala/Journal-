@@ -402,11 +402,11 @@ header h1{
   border-radius:4px;
   box-shadow:0 20px 60px rgba(0,0,0,0.5);
   cursor:zoom-in;
+  transition:transform .2s ease;
+  transform:scale(1);
 }
 .lightbox-overlay img.zoomed{
-  max-width:none;
-  max-height:none;
-  width:auto;
+  transform:scale(2.2);
   cursor:zoom-out;
 }
 .lightbox-close{
