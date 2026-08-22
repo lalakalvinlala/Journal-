@@ -394,12 +394,9 @@ export default function Page() {
         {[
           ['all', 'Everything'],
           ['thought', 'Thoughts'],
-          ['trade', 'Trades'],
           ['trade-open', 'Open Trades'],
           ['trade-closed', 'Closed Trades'],
         ].map(([key, label]) => (
-          <button key={key} className={filter === key ? 'active' : ''} onClick={() => setFilter(key)}>
-            {label}
           </button>
         ))}
       </nav>
