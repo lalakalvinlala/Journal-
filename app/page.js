@@ -22,7 +22,7 @@ function compressImage(file) {
     const img = new Image();
     img.onload = () => {
       let w = img.width, h = img.height;
-      const maxW = 900;
+      const maxW = 1600;
       if (w > maxW) { h = Math.round((h * maxW) / w); w = maxW; }
       const canvas = document.createElement('canvas');
       canvas.width = w; canvas.height = h;
@@ -31,10 +31,10 @@ function compressImage(file) {
       canvas.toBlob(
         (blob) => {
           if (!blob) { reject(new Error('Could not process image')); return; }
-          resolve({ blob, previewUrl: canvas.toDataURL('image/jpeg', 0.72) });
+          resolve({ blob, previewUrl: canvas.toDataURL('image/jpeg', 0.9) });
         },
         'image/jpeg',
-        0.72
+        0.9
       );
     };
     img.onerror = reject;
@@ -104,6 +104,7 @@ export default function Page() {
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
   const [confirmDeleteUpdateId, setConfirmDeleteUpdateId] = useState(null);
   const [lightboxImage, setLightboxImage] = useState(null);
+  const [zoomed, setZoomed] = useState(false);
 
   const [tMood, setTMood] = useState(MOODS[0]);
   const [tText, setTText] = useState('');
@@ -152,6 +153,10 @@ export default function Page() {
     document.addEventListener('paste', onPaste);
     return () => document.removeEventListener('paste', onPaste);
   }, [updateDraft]);
+
+  useEffect(() => {
+    setZoomed(false);
+  }, [lightboxImage]);
 
   useEffect(() => {
     if (!lightboxImage) return;
@@ -742,8 +747,15 @@ export default function Page() {
       )}
       {lightboxImage && (
         <div className="lightbox-overlay" onClick={() => setLightboxImage(null)}>
-          <button className="lightbox-close" onClick={() => setLightboxImage(null)} aria-label="Close">×</button>
-          <img src={lightboxImage} alt="Enlarged screenshot" />
+          <button className="lightbox-close" onClick={(ev) => { ev.stopPropagation(); setLightboxImage(null); }} aria-label="Close">×</button>
+          <div className="lightbox-inner" onClick={(ev) => ev.stopPropagation()}>
+            <img
+              src={lightboxImage}
+              alt="Enlarged screenshot"
+              className={zoomed ? 'zoomed' : ''}
+              onClick={() => setZoomed((z) => !z)}
+            />
+          </div>
         </div>
       )}
     </div>
