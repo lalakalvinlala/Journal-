@@ -8,7 +8,6 @@
   --pin-red:#B33A3A;
   --pin-teal:#3F7A6E;
   --pin-mustard:#B4862B;
-  --pin-slate:#8A8272;
 }
 *{box-sizing:border-box;}
 html, body{
@@ -187,10 +186,8 @@ header h1{
 }
 @keyframes rise{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);}}
 @media (prefers-reduced-motion: reduce){.card{animation:none;}}
-.card.forest{border-left-color:var(--pin-teal);}
-.card.brass{border-left-color:var(--pin-mustard);}
-.card.rust{border-left-color:var(--pin-red);}
-.card.slate{border-left-color:var(--pin-slate);}
+.card.thought{border-left-color:var(--pin-mustard);}
+.card.trade{border-left-color:var(--pin-teal);}
 
 .card-meta{
   display:flex;
@@ -242,11 +239,7 @@ header h1{
   gap:10px;
 }
 .update-item{display:flex;gap:8px;align-items:flex-start;}
-.update-dot{width:8px;height:8px;border-radius:50%;margin-top:6px;flex:none;}
-.update-dot.forest{background:var(--pin-teal);}
-.update-dot.brass{background:var(--pin-mustard);}
-.update-dot.rust{background:var(--pin-red);}
-.update-dot.slate{background:var(--pin-slate);}
+.update-dot{width:8px;height:8px;border-radius:50%;margin-top:6px;flex:none;background:var(--ink-soft);}
 .update-meta{font-family:'IBM Plex Mono', monospace;font-size:10px;color:var(--ink-soft);margin-bottom:2px;}
 .update-text{font-family:'Nunito', sans-serif;font-size:14px;line-height:1.5;margin:0;color:var(--ink);white-space:pre-line;}
 .update-image{display:block;max-width:100%;border-radius:6px;margin-top:6px;cursor:zoom-in;}
@@ -320,24 +313,6 @@ header h1{
   color:var(--ink);
 }
 .search-bar input:focus{outline:2px solid var(--pin-mustard);outline-offset:1px;}
-
-.trends{
-  max-width:640px;
-  margin:0 auto 20px;
-  background:var(--kraft);
-  border:1px solid rgba(43,32,19,0.14);
-  border-radius:8px;
-  padding:16px 20px;
-}
-.trends-title{
-  font-family:'IBM Plex Mono', monospace;
-  font-size:11px;
-  letter-spacing:.08em;
-  text-transform:uppercase;
-  color:var(--ink-soft);
-  margin:0 0 12px;
-}
-.chart-wrap{margin:0 -4px;}
 
 .modal-overlay{
   position:fixed;
