@@ -1,10 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
-const MOODS = ['Neutral', 'Confident', 'FOMO', 'Regretful'];
-const MOOD_COLOR = { Neutral: 'slate', Confident: 'forest', FOMO: 'brass', Regretful: 'rust' };
 const CATEGORIES = ['Memecoin', 'Stock', 'Leverage', 'Other'];
 
 function fmtDate(iso) {
@@ -44,57 +41,6 @@ function compressImage(file) {
   });
 }
 
-function startOfDay(d) { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; }
-function startOfWeek(d) {
-  const x = startOfDay(d);
-  const day = x.getDay();
-  const diff = day === 0 ? -6 : 1 - day;
-  x.setDate(x.getDate() + diff);
-  return x;
-}
-
-function buildBuckets(granularity) {
-  const today = new Date();
-  const buckets = [];
-  if (granularity === 'daily') {
-    for (let i = 13; i >= 0; i--) {
-      const start = startOfDay(new Date(today.getFullYear(), today.getMonth(), today.getDate() - i));
-      const end = new Date(start); end.setDate(end.getDate() + 1);
-      buckets.push({ start, end, label: start.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) });
-    }
-  } else if (granularity === 'weekly') {
-    const thisWeekStart = startOfWeek(today);
-    for (let i = 11; i >= 0; i--) {
-      const start = new Date(thisWeekStart); start.setDate(start.getDate() - i * 7);
-      const end = new Date(start); end.setDate(end.getDate() + 7);
-      buckets.push({ start, end, label: start.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) });
-    }
-  } else if (granularity === 'monthly') {
-    for (let i = 11; i >= 0; i--) {
-      const start = new Date(today.getFullYear(), today.getMonth() - i, 1);
-      const end = new Date(today.getFullYear(), today.getMonth() - i + 1, 1);
-      buckets.push({ start, end, label: start.toLocaleDateString(undefined, { month: 'short', year: '2-digit' }) });
-    }
-  } else {
-    for (let i = 4; i >= 0; i--) {
-      const y = today.getFullYear() - i;
-      buckets.push({ start: new Date(y, 0, 1), end: new Date(y + 1, 0, 1), label: String(y) });
-    }
-  }
-  return buckets;
-}
-
-function bucketMoodData(entries, granularity) {
-  return buildBuckets(granularity).map((b) => {
-    const counts = { Neutral: 0, Confident: 0, FOMO: 0, Regretful: 0 };
-    entries.forEach((e) => {
-      const t = new Date(e.created_at);
-      if (t >= b.start && t < b.end && counts[e.mood] !== undefined) counts[e.mood]++;
-    });
-    return { label: b.label, ...counts };
-  });
-}
-
 export default function Page() {
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -102,18 +48,15 @@ export default function Page() {
   const [search, setSearch] = useState('');
   const [type, setType] = useState('thought');
   const [editingId, setEditingId] = useState(null);
-  const [granularity, setGranularity] = useState('daily');
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
   const [confirmDeleteUpdateId, setConfirmDeleteUpdateId] = useState(null);
   const [lightboxImage, setLightboxImage] = useState(null);
   const [zoomed, setZoomed] = useState(false);
 
-  const [tMood, setTMood] = useState(MOODS[0]);
   const [tText, setTText] = useState('');
 
   const [xAsset, setXAsset] = useState('');
   const [xCategory, setXCategory] = useState(CATEGORIES[0]);
-  const [xMood, setXMood] = useState(MOODS[0]);
   const [xNotes, setXNotes] = useState('');
 
   const [imageState, setImageState] = useState({ url: null, blob: null });
@@ -206,12 +149,10 @@ export default function Page() {
     setError('');
     setType(entry.type);
     if (entry.type === 'thought') {
-      setTMood(entry.mood || MOODS[0]);
       setTText(entry.text || '');
     } else {
       setXAsset(entry.asset || '');
       setXCategory(entry.category || CATEGORIES[0]);
-      setXMood(entry.mood || MOODS[0]);
       setXNotes(entry.notes || '');
     }
     setImageState({ url: entry.image_url || null, blob: null });
@@ -241,8 +182,8 @@ export default function Page() {
       }
 
       const body = type === 'thought'
-        ? { type: 'thought', mood: tMood, text: tText.trim(), image_url }
-        : { type: 'trade', asset: xAsset.trim(), category: xCategory, mood: xMood, notes: xNotes.trim(), image_url };
+        ? { type: 'thought', text: tText.trim(), image_url }
+        : { type: 'trade', asset: xAsset.trim(), category: xCategory, notes: xNotes.trim(), image_url };
 
       const url = editingId ? `/api/entries/${editingId}` : '/api/entries';
       const method = editingId ? 'PATCH' : 'POST';
@@ -281,7 +222,7 @@ export default function Page() {
       setUpdateDraft(null);
       return;
     }
-    setUpdateDraft({ entryId, updateId: null, mood: MOODS[0], notes: '', imageState: { url: null, blob: null }, markClosed: false });
+    setUpdateDraft({ entryId, updateId: null, notes: '', imageState: { url: null, blob: null }, markClosed: false });
     setUpdateError('');
   }
 
@@ -289,7 +230,6 @@ export default function Page() {
     setUpdateDraft({
       entryId,
       updateId: update.id,
-      mood: update.mood || MOODS[0],
       notes: update.notes || '',
       imageState: { url: update.image_url || null, blob: null },
       markClosed: false,
@@ -333,14 +273,14 @@ export default function Page() {
         const res = await fetch(`/api/updates/${updateDraft.updateId}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ mood: updateDraft.mood, notes: updateDraft.notes.trim(), image_url }),
+          body: JSON.stringify({ notes: updateDraft.notes.trim(), image_url }),
         });
         if (!res.ok) throw new Error('Save failed');
       } else {
         const res = await fetch(`/api/entries/${updateDraft.entryId}/updates`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ mood: updateDraft.mood, notes: updateDraft.notes.trim(), image_url, markClosed: updateDraft.markClosed }),
+          body: JSON.stringify({ notes: updateDraft.notes.trim(), image_url, markClosed: updateDraft.markClosed }),
         });
         if (!res.ok) throw new Error('Save failed');
       }
@@ -398,8 +338,6 @@ export default function Page() {
     })
     .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
-  const chartData = bucketMoodData(entries, granularity);
-
   return (
     <div className="wrap">
       <header>
@@ -434,26 +372,16 @@ export default function Page() {
         </div>
 
         {type === 'thought' ? (
-          <>
-            <div className="field-row">
-              <div className="field">
-                <label>Mood</label>
-                <select value={tMood} onChange={(e) => setTMood(e.target.value)}>
-                  {MOODS.map((m) => <option key={m}>{m}</option>)}
-                </select>
-              </div>
+          <div className="field-row">
+            <div className="field full">
+              <label>What&apos;s on your mind</label>
+              <textarea
+                value={tText}
+                onChange={(e) => setTText(e.target.value)}
+                placeholder="Write it down before the feed talks you out of it."
+              />
             </div>
-            <div className="field-row">
-              <div className="field full">
-                <label>What&apos;s on your mind</label>
-                <textarea
-                  value={tText}
-                  onChange={(e) => setTText(e.target.value)}
-                  placeholder="Write it down before the feed talks you out of it."
-                />
-              </div>
-            </div>
-          </>
+          </div>
         ) : (
           <>
             <div className="field-row">
@@ -465,14 +393,6 @@ export default function Page() {
                 <label>Category</label>
                 <select value={xCategory} onChange={(e) => setXCategory(e.target.value)}>
                   {CATEGORIES.map((c) => <option key={c}>{c}</option>)}
-                </select>
-              </div>
-            </div>
-            <div className="field-row">
-              <div className="field full">
-                <label>Mood</label>
-                <select value={xMood} onChange={(e) => setXMood(e.target.value)}>
-                  {MOODS.map((m) => <option key={m}>{m}</option>)}
                 </select>
               </div>
             </div>
@@ -519,49 +439,6 @@ export default function Page() {
         </div>
       </section>
 
-      {entries.length > 0 && (
-        <section className="trends">
-          <p className="trends-title">Mood trends</p>
-          <div className="type-toggle" style={{ marginBottom: '14px' }}>
-            {['daily', 'weekly', 'monthly', 'yearly'].map((g) => (
-              <button key={g} className={granularity === g ? 'active' : ''} onClick={() => setGranularity(g)}>
-                {g[0].toUpperCase() + g.slice(1)}
-              </button>
-            ))}
-          </div>
-          <div className="chart-wrap">
-            <ResponsiveContainer width="100%" height={220}>
-              <BarChart data={chartData} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(43,32,19,0.12)" vertical={false} />
-                <XAxis
-                  dataKey="label"
-                  tick={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 10, fill: '#7A6B4C' }}
-                  axisLine={{ stroke: 'rgba(43,32,19,0.2)' }}
-                  tickLine={false}
-                />
-                <YAxis
-                  allowDecimals={false}
-                  tick={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 10, fill: '#7A6B4C' }}
-                  axisLine={false}
-                  tickLine={false}
-                  width={24}
-                />
-                <Tooltip
-                  contentStyle={{ background: '#F2E9D3', border: '1px solid rgba(43,32,19,0.2)', borderRadius: 8, fontFamily: 'Nunito, sans-serif', fontSize: 12 }}
-                  labelStyle={{ color: '#2B2013', fontWeight: 600 }}
-                  cursor={{ fill: 'rgba(43,32,19,0.05)' }}
-                />
-                <Legend wrapperStyle={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 11 }} />
-                <Bar dataKey="Neutral" stackId="mood" fill="#8A8272" />
-                <Bar dataKey="Confident" stackId="mood" fill="#3F7A6E" />
-                <Bar dataKey="FOMO" stackId="mood" fill="#B4862B" />
-                <Bar dataKey="Regretful" stackId="mood" fill="#B33A3A" radius={[3, 3, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </section>
-      )}
-
       <div className="search-bar">
         <input
           type="text"
@@ -583,10 +460,8 @@ export default function Page() {
       ) : (
         <section className="feed">
           {filtered.map((e) => {
-            const mood = e.mood || 'Neutral';
-            const stampClass = MOOD_COLOR[mood] || 'brass';
             return (
-              <article key={e.id} className={`card ${stampClass}`}>
+              <article key={e.id} className={`card ${e.type === 'trade' ? 'trade' : 'thought'}`}>
                 <div className="card-meta">
                   <span>{fmtDate(e.created_at)}</span>
                   <span className="tag">{e.type === 'thought' ? 'Thought' : 'Trade'}</span>
@@ -594,7 +469,6 @@ export default function Page() {
                   {e.type === 'trade' && (
                     <span className={`tag status-${e.status || 'open'}`}>{e.status === 'closed' ? 'Closed' : 'Open'}</span>
                   )}
-                  <span className="tag">{mood}</span>
                 </div>
                 {e.type === 'thought' ? (
                   <p className="entry-text">{e.text}</p>
@@ -617,9 +491,9 @@ export default function Page() {
                   <div className="updates-thread">
                     {e.updates.map((u) => (
                       <div className="update-item" key={u.id}>
-                        <span className={`update-dot ${MOOD_COLOR[u.mood] || 'brass'}`} />
+                        <span className="update-dot" />
                         <div className="update-body">
-                          <div className="update-meta">{fmtDate(u.created_at)} · {u.mood}</div>
+                          <div className="update-meta">{fmtDate(u.created_at)}</div>
                           <p className="update-text">{u.notes}</p>
                           {u.image_url && (
                             <img
@@ -657,17 +531,6 @@ export default function Page() {
                     <div className="editing-banner">
                       <span>{updateDraft.updateId ? 'Editing update' : 'New update'}</span>
                       <button onClick={cancelUpdateForm}>Cancel</button>
-                    </div>
-                    <div className="field-row">
-                      <div className="field">
-                        <label>Mood</label>
-                        <select
-                          value={updateDraft.mood}
-                          onChange={(ev) => setUpdateDraft((prev) => ({ ...prev, mood: ev.target.value }))}
-                        >
-                          {MOODS.map((m) => <option key={m}>{m}</option>)}
-                        </select>
-                      </div>
                     </div>
                     <div className="field-row">
                       <div className="field full">
