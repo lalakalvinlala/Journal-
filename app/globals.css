@@ -8,6 +8,7 @@
   --pin-red:#B33A3A;
   --pin-teal:#3F7A6E;
   --pin-mustard:#B4862B;
+  --pin-slate:#8A8272;
 }
 *{box-sizing:border-box;}
 html, body{
@@ -189,6 +190,7 @@ header h1{
 .card.forest{border-left-color:var(--pin-teal);}
 .card.brass{border-left-color:var(--pin-mustard);}
 .card.rust{border-left-color:var(--pin-red);}
+.card.slate{border-left-color:var(--pin-slate);}
 
 .card-meta{
   display:flex;
@@ -244,6 +246,7 @@ header h1{
 .update-dot.forest{background:var(--pin-teal);}
 .update-dot.brass{background:var(--pin-mustard);}
 .update-dot.rust{background:var(--pin-red);}
+.update-dot.slate{background:var(--pin-slate);}
 .update-meta{font-family:'IBM Plex Mono', monospace;font-size:10px;color:var(--ink-soft);margin-bottom:2px;}
 .update-text{font-family:'Nunito', sans-serif;font-size:14px;line-height:1.5;margin:0;color:var(--ink);white-space:pre-line;}
 .update-image{display:block;max-width:100%;border-radius:6px;margin-top:6px;cursor:zoom-in;}
