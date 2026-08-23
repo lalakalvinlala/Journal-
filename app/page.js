@@ -3,8 +3,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
-const MOODS = ['Confident', 'FOMO', 'Regretful'];
-const MOOD_COLOR = { Confident: 'forest', FOMO: 'brass', Regretful: 'rust' };
+const MOODS = ['Neutral', 'Confident', 'FOMO', 'Regretful'];
+const MOOD_COLOR = { Neutral: 'slate', Confident: 'forest', FOMO: 'brass', Regretful: 'rust' };
 const CATEGORIES = ['Memecoin', 'Stock', 'Leverage', 'Other'];
 
 function fmtDate(iso) {
@@ -86,7 +86,7 @@ function buildBuckets(granularity) {
 
 function bucketMoodData(entries, granularity) {
   return buildBuckets(granularity).map((b) => {
-    const counts = { Confident: 0, FOMO: 0, Regretful: 0 };
+    const counts = { Neutral: 0, Confident: 0, FOMO: 0, Regretful: 0 };
     entries.forEach((e) => {
       const t = new Date(e.created_at);
       if (t >= b.start && t < b.end && counts[e.mood] !== undefined) counts[e.mood]++;
@@ -552,6 +552,7 @@ export default function Page() {
                   cursor={{ fill: 'rgba(43,32,19,0.05)' }}
                 />
                 <Legend wrapperStyle={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 11 }} />
+                <Bar dataKey="Neutral" stackId="mood" fill="#8A8272" />
                 <Bar dataKey="Confident" stackId="mood" fill="#3F7A6E" />
                 <Bar dataKey="FOMO" stackId="mood" fill="#B4862B" />
                 <Bar dataKey="Regretful" stackId="mood" fill="#B33A3A" radius={[3, 3, 0, 0]} />
@@ -582,7 +583,7 @@ export default function Page() {
       ) : (
         <section className="feed">
           {filtered.map((e) => {
-            const mood = e.mood || 'Confident';
+            const mood = e.mood || 'Neutral';
             const stampClass = MOOD_COLOR[mood] || 'brass';
             return (
               <article key={e.id} className={`card ${stampClass}`}>
