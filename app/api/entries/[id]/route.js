@@ -12,6 +12,11 @@ export async function PATCH(request, context) {
       return NextResponse.json({ ok: true });
     }
 
+    if (body.pinOnly) {
+      await sql`UPDATE entries SET pinned = ${body.pinned} WHERE id = ${id};`;
+      return NextResponse.json({ ok: true });
+    }
+
     const { mood, text, asset, category, notes, image_url } = body;
     await sql`
       UPDATE entries
