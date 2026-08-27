@@ -6,9 +6,13 @@ export async function PATCH(request, context) {
     const { id } = await context.params;
     const sql = neon(process.env.DATABASE_URL);
     const body = await request.json();
-
     if (body.statusOnly) {
       await sql`UPDATE entries SET status = ${body.status} WHERE id = ${id};`;
+      return NextResponse.json({ ok: true });
+    }
+
+    if (body.pinOnly) {
+      await sql`UPDATE entries SET pinned = ${body.pinned} WHERE id = ${id};`;
       return NextResponse.json({ ok: true });
     }
 
