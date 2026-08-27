@@ -22,6 +22,7 @@ async function ensureSchema(sql) {
   `;
   await sql`ALTER TABLE entries ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'open';`;
   await sql`ALTER TABLE entries ADD COLUMN IF NOT EXISTS pinned BOOLEAN DEFAULT false;`;
+  await sql`ALTER TABLE entries ADD COLUMN IF NOT EXISTS pinned BOOLEAN DEFAULT false;`;
   await sql`
     CREATE TABLE IF NOT EXISTS entry_updates (
       id TEXT PRIMARY KEY,
